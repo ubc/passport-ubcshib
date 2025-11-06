@@ -355,7 +355,7 @@ For issues, questions, or contributions, please contact the UBC IAM team.
 
 ## License
 
-MIT
+GPL v3
 
 ## References
 

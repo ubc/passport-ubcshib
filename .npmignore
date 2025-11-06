@@ -1,0 +1,14 @@
+example/
+.gitignore
+ATTRIBUTES.md
+TESTING.md
+DEVELOPMENT.md
+GETTING_STARTED.md
+PROJECT_SUMMARY.md
+IMPLEMENTATION_COMPLETE.md
+ADDING_ATTRIBUTES.md
+FINAL_SUMMARY.md
+staging.html
+production.html
+Metadata.example
+.claude/
