@@ -1,8 +1,9 @@
 /**
- * Example Express application using @ubcshib/passport-ubcshib
+ * Example Express application using passport-ubcshib
  * This demonstrates a complete setup with authentication flow
  */
 
+const fs = require('fs');
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
@@ -55,6 +56,10 @@ passport.use(
 
       // Optional: private key for signing requests
       privateKeyPath: process.env.SAML_PRIVATE_KEY_PATH,
+
+      // Required: IdP's public certificate for validating SAML responses
+      // In production, load from /etc/your-app-name/saml/idp-cert.pem
+      cert: fs.readFileSync('./example/idp-cert.pem', 'utf8'),
 
       // Specify which attributes your app needs
       attributeConfig: [

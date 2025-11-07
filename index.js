@@ -137,9 +137,15 @@ class UBCStrategy extends SamlStrategy {
       acceptedClockSkewMs:
         options.acceptedClockSkewMs || 0,
 
-      // Certificate handling - to be fetched from IdP metadata
-      // For now, we'll pass null and handle via options
-      cert: options.cert || null,
+      // Certificate: must be provided (either directly or loaded from file)
+      // This is the IdP's public certificate for validating SAML responses
+      cert: options.cert || (() => {
+        throw new Error(
+          'SAML certificate is required. ' +
+          'Either provide options.cert directly, ' +
+          'or set up certificate fetching from IdP metadata.'
+        );
+      })(),
 
       // SAML protocol options
       authnRequestBinding:
