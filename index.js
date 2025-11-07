@@ -150,8 +150,8 @@ class UBCStrategy extends SamlStrategy {
       identifierFormat: options.identifierFormat || null,
     };
 
-    // Store UBC-specific options before calling parent constructor
-    this.ubcOptions = {
+    // Store UBC-specific options in a variable before calling super
+    const ubcOptionsToStore = {
       attributeConfig: options.attributeConfig || [],
       enableSLO: options.enableSLO !== false,
       metadataUrl: options.metadataUrl || ubcConfig.metadataUrl,
@@ -166,10 +166,10 @@ class UBCStrategy extends SamlStrategy {
         ...profile,
       };
 
-      if (this.ubcOptions.attributeConfig.length > 0) {
+      if (ubcOptionsToStore.attributeConfig.length > 0) {
         const attributes = mapAttributes(
           profile,
-          this.ubcOptions.attributeConfig
+          ubcOptionsToStore.attributeConfig
         );
         mappedProfile.attributes = attributes;
       }
@@ -180,6 +180,10 @@ class UBCStrategy extends SamlStrategy {
 
     // Initialize parent SAML Strategy
     super(samlOptions, wrappedVerify);
+
+    // Now that super() is called, we can use this
+    // Store UBC-specific options
+    this.ubcOptions = ubcOptionsToStore;
 
     // Override strategy name
     this.name = 'ubcshib';
