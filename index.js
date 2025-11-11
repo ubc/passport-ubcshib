@@ -128,6 +128,12 @@ class UBCStrategy extends SamlStrategy {
         ? loadPrivateKey(options.privateKeyPath)
         : null,
 
+      // Decryption private key - used if IdP encrypts SAML responses
+      // Usually the same as privateKey
+      decryptionPvk: options.privateKeyPath
+        ? loadPrivateKey(options.privateKeyPath)
+        : null,
+
       // SAML options
       signatureAlgorithm: options.signatureAlgorithm || 'sha256',
       digestAlgorithm: options.digestAlgorithm || 'sha256',
