@@ -5,7 +5,8 @@ A Passport.js strategy for integrating UBC's Shibboleth SAML 2.0 Identity Provid
 ## Features
 
 -   **SAML 2.0 Support**: Full SAML 2.0 authentication with UBC's Shibboleth IdP
--   **Multi-Environment**: Automatic configuration for staging and production environments
+-   **Multi-Environment**: Automatic configuration for LOCAL (SimpleSAMLphp), STAGING, and PRODUCTION environments
+-   **Local Development**: Test with docker-simple-saml before deploying to staging/production
 -   **Flexible Attributes**: Per-application attribute selection with OID-to-friendly-name mapping
 -   **Secure**: Supports SAML request signing and response validation
 -   **Single Logout (SLO)**: Optional support for single logout at the IdP
@@ -348,6 +349,18 @@ new Strategy(
 -   Verify attributes are listed in your `attributeConfig`
 -   Check that UBC IAM has authorized release of those attributes to your app
 -   Use the `attributeConfig` to only request attributes your app truly needs
+
+## Documentation
+
+This package includes comprehensive documentation for different use cases:
+
+- **[LOCAL_SETUP.md](./LOCAL_SETUP.md)** - Quick start guide for local development with SimpleSAMLphp using docker-simple-saml
+- **[INTEGRATION-GUIDE.md](./INTEGRATION-GUIDE.md)** - Complete integration guide for staging and production deployment
+- **[ATTRIBUTES.md](./ATTRIBUTES.md)** - Reference guide for all available SAML attributes
+- **[ADDING_ATTRIBUTES.md](./ADDING_ATTRIBUTES.md)** - Guide for adding new attributes to the library
+- **[GETTING_STARTED.md](./GETTING_STARTED.md)** - High-level overview and key concepts
+- **[TESTING.md](./TESTING.md)** - Testing strategies and debugging techniques
+- **[DEVELOPMENT.md](./DEVELOPMENT.md)** - For library maintainers and contributors
 
 ## Contributing
 

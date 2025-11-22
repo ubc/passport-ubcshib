@@ -10,6 +10,11 @@ const { mapAttributes } = require('./lib/attributes');
 
 // UBC IdP configuration
 const UBC_CONFIG = {
+  LOCAL: {
+    entryPoint: 'http://localhost:8080/simplesaml/saml2/idp/SSOService.php',
+    logoutUrl: 'http://localhost:8080/simplesaml/saml2/idp/SingleLogoutService.php',
+    metadataUrl: 'http://localhost:8080/simplesaml/saml2/idp/metadata.php',
+  },
   STAGING: {
     entryPoint: 'https://authentication.stg.id.ubc.ca/idp/profile/SAML2/Redirect/SSO',
     logoutUrl: 'https://authentication.stg.id.ubc.ca/idp/profile/Logout',
@@ -69,9 +74,12 @@ function extractCertFromMetadata(metadataXml) {
  */
 async function fetchIdPCertificate(metadataUrl) {
   try {
-    const https = require('https');
+    // Determine if we need http or https
+    const isHttps = metadataUrl.startsWith('https://');
+    const protocol = isHttps ? require('https') : require('http');
+
     return new Promise((resolve, reject) => {
-      https
+      protocol
         .get(metadataUrl, (res) => {
           let data = '';
           res.on('data', (chunk) => {
@@ -280,7 +288,7 @@ function logout(returnUrl = '/') {
       }
 
       // If SLO is enabled, redirect to IdP logout, otherwise just redirect
-      const finalUrl = returnUrl;
+      const finalUrl = logoutUrl;
       res.redirect(finalUrl);
     });
   };
