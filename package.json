@@ -1,6 +1,6 @@
 {
   "name": "passport-ubcshib",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Passport.js strategy for UBC Shibboleth SAML 2.0 authentication",
   "main": "index.js",
   "keywords": [

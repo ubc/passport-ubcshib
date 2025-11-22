@@ -235,6 +235,31 @@ class UBCStrategy extends SamlStrategy {
       // Continue anyway - certificate validation will fail, but strategy won't crash
     }
   }
+
+  /**
+   * Authenticate request
+   * Overridden to patch req.logout for compatibility between passport-saml 3.x and passport 0.6.0+
+   * @param {Object} req - Request object
+   * @param {Object} options - Authentication options
+   */
+  authenticate(req, options) {
+    // Patch req.logout if it exists
+    if (req.logout) {
+      const originalLogout = req.logout;
+      req.logout = function (cb) {
+        // If called without callback (as passport-saml 3.x does), provide one
+        if (!cb) {
+          return originalLogout.call(this, (err) => {
+            if (err) console.error('SAML Logout Error (patched):', err);
+          });
+        }
+        // Otherwise pass through
+        return originalLogout.apply(this, arguments);
+      };
+    }
+
+    return super.authenticate(req, options);
+  }
 }
 
 /**
