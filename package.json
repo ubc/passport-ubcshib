@@ -1,6 +1,6 @@
 {
   "name": "passport-ubcshib",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Passport.js strategy for UBC Shibboleth SAML 2.0 authentication",
   "main": "index.js",
   "keywords": [
@@ -17,10 +17,12 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "passport-saml": "^3.2.4"
+    "@node-saml/passport-saml": "^5.1.1"
   },
   "devDependencies": {
-    "passport": "^0.7.0"
+    "passport": "^0.7.0",
+    "xml-crypto": "^6.3.2",
+    "xml-encryption": "^3.1.0"
   },
   "peerDependencies": {
     "passport": "^0.7.0"
@@ -32,5 +34,8 @@
   "bugs": {
     "url": "https://github.com/ubc/passport-ubcshib/issues"
   },
-  "homepage": "https://github.com/ubc/passport-ubcshib#readme"
+  "homepage": "https://github.com/ubc/passport-ubcshib#readme",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
 }
