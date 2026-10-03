@@ -12,3 +12,10 @@ staging.html
 production.html
 Metadata.example
 .claude/
+
+# Tests, keys and scratch (never published)
+test/
+*.pem
+*.crt
+*.key
+coverage/

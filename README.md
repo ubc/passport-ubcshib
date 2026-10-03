@@ -1,6 +1,8 @@
 # @ubcshib/passport-ubcshib
 
-A Passport.js strategy for integrating UBC's Shibboleth SAML 2.0 Identity Provider with Node.js applications. An extension of the passport-saml library, with thanks to University of Washington for publishing theirs from which we could work: https://www.passportjs.org/packages/passport-uwshib/
+A Passport.js strategy for integrating UBC's Shibboleth SAML 2.0 Identity Provider with Node.js applications. An extension of the [`@node-saml/passport-saml`](https://github.com/node-saml/passport-saml) library, with thanks to University of Washington for publishing theirs from which we could work: https://www.passportjs.org/packages/passport-uwshib/
+
+> **Since 0.1.7** this library is built on `@node-saml/passport-saml` (the maintained successor to the deprecated `passport-saml`, which carried the unfixable critical advisory [GHSA-4mxg-3p6v-xgq3](https://github.com/advisories/GHSA-4mxg-3p6v-xgq3)). The upgrade is **backwards compatible** — no configuration or code change is required. See [CHANGELOG.md](./CHANGELOG.md).
 
 ## Features
 
