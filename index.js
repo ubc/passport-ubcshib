@@ -135,11 +135,14 @@ function normalizeValidateInResponseTo(value) {
 class UBCStrategy extends SamlStrategy {
   /**
    * @param {Object} options - UBC/SAML options (unchanged from 0.1.6)
-   * @param {Function} verify - verify callback (profile, done)
-   * @param {Function} [logoutVerify] - optional SLO verify callback. @node-saml
-   *   calls this when it processes a LogoutRequest/LogoutResponse. 0.1.6 (on
-   *   passport-saml 3.x) took no such callback, so this argument is optional
-   *   and a safe default is supplied when it is omitted.
+   * @param {Function} verify - verify callback: (profile, done), or
+   *   (req, profile, done) when `options.passReqToCallback` is true
+   * @param {Function} [logoutVerify] - optional SLO verify callback, with the
+   *   same arity rule. @node-saml calls it for an IdP-initiated LogoutRequest
+   *   and answers the IdP Success only when the user it returns deep-equals
+   *   `req.user`. 0.1.6 (on passport-saml 3.x) took no such callback, so this
+   *   argument is optional; when it is omitted the wrapper ends the local
+   *   session itself and always answers Success, as 0.1.6 did.
    */
   constructor(options, verify, logoutVerify) {
     if (!options) {
@@ -267,9 +270,8 @@ class UBCStrategy extends SamlStrategy {
       cert: options.cert,
     };
 
-    // Create wrapped verify function that handles attribute mapping
-    const wrappedVerify = (profile, done) => {
-      // Map SAML attributes based on configuration
+    // Map SAML attributes based on configuration
+    const mapProfile = (profile) => {
       const mappedProfile = {
         ...profile,
       };
@@ -282,22 +284,45 @@ class UBCStrategy extends SamlStrategy {
         mappedProfile.attributes = attributes;
       }
 
-      // Call original verify with mapped profile
-      verify(mappedProfile, done);
+      return mappedProfile;
     };
 
+    // `passReqToCallback` is passed through above, and @node-saml then calls
+    // both verify callbacks as (req, profile, done) instead of (profile, done).
+    // The wrapper's own callbacks take whichever arity @node-saml will use, and
+    // call the consumer's verify with the same one, with the mapped profile.
+    // (0.1.6 never passed the option to passport-saml, so it was ignored.)
+    const passReqToCallback = !!options.passReqToCallback;
+
+    const wrappedVerify = passReqToCallback
+      ? (req, profile, done) => verify(req, mapProfile(profile), done)
+      : (profile, done) => verify(mapProfile(profile), done);
+
     // @node-saml's Strategy requires a logout verify callback to process SLO
-    // messages (passport-saml 3.x did not). Supply a safe default that accepts
-    // the logout: it hands the SAML profile straight back. If the consumer
-    // provided one, use theirs.
-    const slo =
-      logoutVerify ||
-      ((profile, done) => {
-        done(null, profile);
-      });
+    // messages (passport-saml 3.x did not), and answers an IdP-initiated
+    // LogoutRequest with Success only when the user that callback returns
+    // deep-equals `req.user` (its strategy.js: `deepStrictEqual(req.user,
+    // logoutUser)`); otherwise Requester/UnknownPrincipal, telling the IdP this
+    // app did NOT sign the person out. The default returns `null`, and
+    // `authenticate` below ends the local session before @node-saml runs —
+    // passport's `req.logout` sets `req.user` to null — so the two always match
+    // and the IdP is always told Success, as 0.1.6 always told it.
+    //
+    // A consumer's own logoutVerify replaces the default and the session is NOT
+    // ended first: it gets @node-saml's contract unchanged (return the user
+    // that matches `req.user` for Success), and @node-saml ends the session
+    // after answering either way.
+    const defaultLogoutVerify = passReqToCallback
+      ? (req, profile, done) => done(null, null)
+      : (profile, done) => done(null, null);
+    const slo = logoutVerify || defaultLogoutVerify;
 
     // Initialize parent SAML Strategy
     super(samlOptions, wrappedVerify, slo);
+
+    // Whether `authenticate` ends the local session before handing an
+    // IdP-initiated LogoutRequest to @node-saml (only with the default).
+    this._endSessionBeforeLogoutRequest = !logoutVerify;
 
     // Now that super() is called, we can use this
     // Store UBC-specific options
@@ -340,7 +365,9 @@ class UBCStrategy extends SamlStrategy {
    * Authenticate request
    * Overridden to patch req.logout for compatibility between passport-saml 3.x
    * (and @node-saml's SLO path) and passport 0.6.0+, where `req.logout`
-   * requires a callback.
+   * requires a callback; and, for an IdP-initiated LogoutRequest under the
+   * default logout verify, to end the local session before @node-saml answers
+   * it (see the constructor).
    * @param {Object} req - Request object
    * @param {Object} options - Authentication options
    */
@@ -358,6 +385,30 @@ class UBCStrategy extends SamlStrategy {
         // Otherwise pass through
         return originalLogout.apply(this, arguments);
       };
+    }
+
+    // An IdP-initiated LogoutRequest (HTTP-Redirect or HTTP-POST binding):
+    // end the local session FIRST, so `req.user` is null when @node-saml
+    // compares it with the default logout verify's null, and the IdP is told
+    // Success. This runs before the request is validated, so a LogoutRequest
+    // that then fails validation has still signed this browser out of the app
+    // — no more than a plain GET of the app's own logout route can do. A
+    // failure to end the session is an error, not a Success.
+    const carriesLogoutRequest =
+      (req.query && req.query.SAMLRequest) ||
+      (req.body && req.body.SAMLRequest);
+    if (
+      this._endSessionBeforeLogoutRequest &&
+      carriesLogoutRequest &&
+      typeof req.logout === 'function'
+    ) {
+      req.logout((err) => {
+        if (err) {
+          return this.error(err);
+        }
+        super.authenticate(req, options);
+      });
+      return undefined;
     }
 
     return super.authenticate(req, options);

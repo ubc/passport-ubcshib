@@ -4,6 +4,23 @@
 
 **Security fix — backwards compatible. No configuration or code change required.**
 
+### Fixed in rc.2: single-logout answers Success again; passReqToCallback honoured
+
+- **Single logout answers the IdP `Success` again.** In rc.1 every IdP-initiated
+  LogoutRequest was answered `Requester`/`UnknownPrincipal` — telling the IdP the
+  app had *not* signed the person out — because `@node-saml` answers `Success`
+  only when the logout verify's user deep-equals `req.user`, and rc.1's default
+  returned the LogoutRequest's profile. The default now ends the app's session
+  first (passport's `req.logout`, which leaves `req.user` null) and returns
+  `null`, so the answer is always `Success`, as 0.1.6's always was. Measured
+  against the published 0.1.6 in both bindings, signed in or not.
+- **`passReqToCallback: true` works.** rc.1 passed it to `@node-saml`, which then
+  calls the verify as `(req, profile, done)`, but the wrapper still expected
+  `(profile, done)`, so the consumer's verify was handed the request as its
+  profile and no `done`. The verify (and a logout verify) now receives
+  `(req, profile, done)` with the attribute-mapped profile when the option is
+  true, and `(profile, done)` otherwise.
+
 ### Changed
 
 - **Replaced the deprecated `passport-saml@^3.2.4` with `@node-saml/passport-saml@^5.1.1`.**
@@ -25,8 +42,12 @@
     left at their (false) defaults;
   - audience is not validated by default (as in 0.1.6); pass `audience` to opt in;
   - the SLO/logout verify callback `@node-saml` now requires is supplied
-    automatically. You may pass your own as an optional **third** constructor
-    argument;
+    automatically: it ends the app's session and answers the IdP's
+    LogoutRequest `Success`, as 0.1.6 did. You may pass your own as an optional
+    **third** constructor argument; it then gets `@node-saml`'s contract
+    unchanged — return the user that deep-equals `req.user` for `Success`,
+    anything else answers `Requester`/`UnknownPrincipal` — and the session is
+    not ended before it runs (`@node-saml` ends it after answering);
   - the profile handed to the verify callback has the same shape (`nameID`,
     `nameIDFormat`, `sessionIndex`, `issuer`, root-level attribute keys,
     `profile.attributes`, `profile.mail`/`profile.email`, `getAssertionXml` etc.).
@@ -50,12 +71,19 @@
 - A `node:test` suite (`npm test`) including a differential SAML signature harness:
   Response-signed, Assertion-signed, both, unsigned, tampered-after-signing,
   wrong-key, and two signature-wrapping variants, plus friendly/OID/MACE attribute
-  resolution. Requires `openssl` on `PATH` (skips gracefully otherwise).
+  resolution; and (rc.2) single logout in both bindings, decoding the
+  LogoutResponse, runnable against a published version with `UBCSHIB_REFERENCE`
+  (see `test/slo.test.js`), and `passReqToCallback`. Requires `openssl` on `PATH`
+  (skips gracefully otherwise).
 
 ### Compatibility notes for consumers
 
 - `^0.1.6` consumers (`npm install` without a frozen lockfile) pick up this fix
   automatically. With a committed lockfile, run `npm update passport-ubcshib`.
+- `passReqToCallback` was silently ignored by 0.1.6 (it never reached
+  `passport-saml`), so a verify written as `(profile, done)` alongside
+  `passReqToCallback: true` worked there by accident. From 0.1.7 the option does
+  what passport documents: drop it, or take `(req, profile, done)`.
 - Consumers that still declare `passport-saml` directly (for their own generic
   strategy) or import from `passport-saml` in a `.d.ts` should migrate those to
   `@node-saml/passport-saml`; this package no longer pulls `passport-saml` in.

@@ -5,16 +5,19 @@
  * Responses in every shape the differential harness needs: Response-signed,
  * Assertion-signed, both, unsigned, tampered, wrong-key, and two
  * signature-wrapping variants. Attributes can be emitted under friendly, OID
- * or MACE names.
+ * or MACE names. Also builds an IdP-initiated LogoutRequest in both bindings
+ * (signed) and decodes the LogoutResponse an SP answers it with.
  *
  * No key material is committed; everything is generated into a temp dir at
  * runtime. This file is excluded from the npm package (see .npmignore).
  */
 
 const { execFileSync } = require('child_process');
+const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const zlib = require('zlib');
 const { SignedXml } = require('xml-crypto');
 
 const SIG_ALG = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
@@ -397,6 +400,82 @@ function buildCases(keys) {
   return { legit, attacks };
 }
 
+// ---- Single logout (an IdP-initiated LogoutRequest, and the SP's answer) ----
+
+/**
+ * Build an unsigned IdP-initiated SAML LogoutRequest XML string.
+ * @param {object} [opts]
+ * @param {string} [opts.id]
+ * @param {string} [opts.issuer]
+ * @param {string} [opts.nameID]
+ * @param {string} [opts.sessionIndex]
+ */
+function buildLogoutRequest(opts) {
+  const {
+    id = '_logoutreq1',
+    issuer = 'http://test-idp',
+    nameID = 'test-nameid',
+    sessionIndex = '_session1',
+  } = opts || {};
+  return (
+    `<samlp:LogoutRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ` +
+    `xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ` +
+    `ID="${id}" Version="2.0" IssueInstant="${iso(Date.now())}" ` +
+    `Destination="http://test-sp/slo">` +
+    `<saml:Issuer>${issuer}</saml:Issuer>` +
+    `<saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">${nameID}</saml:NameID>` +
+    `<samlp:SessionIndex>${sessionIndex}</samlp:SessionIndex>` +
+    `</samlp:LogoutRequest>`
+  );
+}
+
+/**
+ * Encode a LogoutRequest for the HTTP-Redirect binding, signed the way that
+ * binding signs: deflate + base64 the XML, then sign the query string
+ * `SAMLRequest=…&RelayState=…&SigAlg=…` (SAML Bindings §3.4.4.1).
+ * @param {string} xml
+ * @param {string} key - PEM private key
+ * @param {string} [relayState]
+ * @returns {{query: object, url: string}} req.query (decoded) and req.url (raw)
+ */
+function redirectLogoutRequest(xml, key, relayState) {
+  const encoded = zlib.deflateRawSync(Buffer.from(xml, 'utf8')).toString('base64');
+  let qs = `SAMLRequest=${encodeURIComponent(encoded)}`;
+  if (relayState) qs += `&RelayState=${encodeURIComponent(relayState)}`;
+  qs += `&SigAlg=${encodeURIComponent(SIG_ALG)}`;
+  const signature = crypto.createSign('RSA-SHA256').update(qs).sign(key, 'base64');
+  qs += `&Signature=${encodeURIComponent(signature)}`;
+  return { query: Object.fromEntries(new URLSearchParams(qs)), url: `/slo?${qs}` };
+}
+
+/**
+ * Encode a LogoutRequest for the HTTP-POST binding: an enveloped XML signature
+ * on the LogoutRequest element, base64 in the form body.
+ * @param {string} xml
+ * @param {string} key - PEM private key
+ * @returns {{SAMLRequest: string}} req.body
+ */
+function postLogoutRequest(xml, key) {
+  return { SAMLRequest: b64(signElement(xml, key, 'LogoutRequest')) };
+}
+
+/**
+ * Decode the LogoutResponse an SP redirects the browser back to the IdP with.
+ * @param {string} redirectUrl - the URL passed to strategy.redirect()
+ * @returns {{xml: string, statusCodes: string[], inResponseTo: string|undefined}}
+ *   statusCodes lists every StatusCode Value in document order: the top-level
+ *   code first, then any nested second-level code.
+ */
+function decodeLogoutResponse(redirectUrl) {
+  const encoded = new URL(redirectUrl).searchParams.get('SAMLResponse');
+  if (!encoded) throw new Error(`no SAMLResponse in ${redirectUrl}`);
+  const xml = zlib.inflateRawSync(Buffer.from(encoded, 'base64')).toString('utf8');
+  if (!/<(\w+:)?LogoutResponse[\s>]/.test(xml)) throw new Error(`not a LogoutResponse: ${xml}`);
+  const statusCodes = [...xml.matchAll(/<(?:\w+:)?StatusCode[^>]*\sValue="([^"]+)"/g)].map((m) => m[1]);
+  const inResponseTo = (xml.match(/\sInResponseTo="([^"]+)"/) || [])[1];
+  return { xml, statusCodes, inResponseTo };
+}
+
 module.exports = {
   setupKeys,
   buildUnsignedResponse,
@@ -406,4 +485,8 @@ module.exports = {
   OID,
   MACE,
   b64,
+  buildLogoutRequest,
+  redirectLogoutRequest,
+  postLogoutRequest,
+  decodeLogoutResponse,
 };
