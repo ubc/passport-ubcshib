@@ -5,8 +5,10 @@
  * Responses in every shape the differential harness needs: Response-signed,
  * Assertion-signed, both, unsigned, tampered, wrong-key, and two
  * signature-wrapping variants. Attributes can be emitted under friendly, OID
- * or MACE names. Also builds an IdP-initiated LogoutRequest in both bindings
- * (signed) and decodes the LogoutResponse an SP answers it with.
+ * or MACE names, answering a given AuthnRequest (InResponseTo) or none. Also
+ * decodes the AuthnRequest a strategy redirects to the IdP with, builds an
+ * IdP-initiated LogoutRequest in both bindings (signed) and decodes the
+ * LogoutResponse an SP answers it with.
  *
  * No key material is committed; everything is generated into a temp dir at
  * runtime. This file is excluded from the npm package (see .npmignore).
@@ -104,6 +106,10 @@ const iso = (ms) => new Date(ms).toISOString();
  * @param {string} [opts.audience]
  * @param {string} [opts.responseId]
  * @param {string} [opts.assertionId]
+ * @param {string} [opts.inResponseTo] - the AuthnRequest ID this Response
+ *   answers. Set on the Response AND on SubjectConfirmationData, as a real IdP
+ *   sets it: @node-saml looks the request up by the first, and retires it from
+ *   its cache (the replay refusal) only through the second.
  */
 function buildUnsignedResponse(opts) {
   const {
@@ -114,7 +120,9 @@ function buildUnsignedResponse(opts) {
     audience = 'http://test-sp',
     responseId = '_resp1',
     assertionId = '_assert1',
+    inResponseTo,
   } = opts || {};
+  const inResponseToAttr = inResponseTo ? ` InResponseTo="${inResponseTo}"` : '';
 
   const attrXml = Object.entries(attributes)
     .map(([friendly, value]) => {
@@ -136,7 +144,7 @@ function buildUnsignedResponse(opts) {
     `<saml:Subject>` +
     `<saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">${nameID}</saml:NameID>` +
     `<saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">` +
-    `<saml:SubjectConfirmationData NotOnOrAfter="${notOnOrAfter}"/>` +
+    `<saml:SubjectConfirmationData NotOnOrAfter="${notOnOrAfter}"${inResponseToAttr}/>` +
     `</saml:SubjectConfirmation>` +
     `</saml:Subject>` +
     `<saml:Conditions NotBefore="${notBefore}" NotOnOrAfter="${notOnOrAfter}">` +
@@ -154,7 +162,7 @@ function buildUnsignedResponse(opts) {
     `<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ` +
     `xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ` +
     `ID="${responseId}" Version="2.0" IssueInstant="${iso(NOW)}" ` +
-    `Destination="http://test-sp/acs">` +
+    `Destination="http://test-sp/acs"${inResponseToAttr}>` +
     `<saml:Issuer>${issuer}</saml:Issuer>` +
     `<samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>` +
     assertion +
@@ -193,6 +201,42 @@ function signElement(xml, key, localName) {
 }
 
 const b64 = (xml) => Buffer.from(xml, 'utf8').toString('base64');
+
+/**
+ * A Response with its Assertion signed by `key`, base64 for the POST binding.
+ * @param {string} key - PEM private key
+ * @param {object} [opts] - as buildUnsignedResponse
+ * @returns {string}
+ */
+function signedResponse(key, opts) {
+  return b64(signElement(buildUnsignedResponse(opts), key, 'Assertion'));
+}
+
+/**
+ * Inflate the SAML message a redirect URL carries (HTTP-Redirect binding).
+ * @param {string} redirectUrl
+ * @param {'SAMLRequest'|'SAMLResponse'} [param='SAMLRequest']
+ * @returns {string} the XML
+ */
+function decodeRedirectMessage(redirectUrl, param = 'SAMLRequest') {
+  const encoded = new URL(redirectUrl).searchParams.get(param);
+  if (!encoded) throw new Error(`no ${param} in ${redirectUrl}`);
+  return zlib.inflateRawSync(Buffer.from(encoded, 'base64')).toString('utf8');
+}
+
+/**
+ * The ID of the AuthnRequest a strategy sent the browser to the IdP with —
+ * what the IdP's Response must name as its InResponseTo.
+ * @param {string} redirectUrl - the URL passed to strategy.redirect()
+ * @returns {string}
+ */
+function authnRequestId(redirectUrl) {
+  const xml = decodeRedirectMessage(redirectUrl, 'SAMLRequest');
+  if (!/<(\w+:)?AuthnRequest[\s>]/.test(xml)) throw new Error(`not an AuthnRequest: ${xml}`);
+  const id = (xml.match(/\sID="([^"]+)"/) || [])[1];
+  if (!id) throw new Error(`AuthnRequest has no ID: ${xml}`);
+  return id;
+}
 
 /**
  * Build the full set of test cases. Returns { legit: [...], attacks: [...] }
@@ -485,6 +529,9 @@ module.exports = {
   OID,
   MACE,
   b64,
+  signedResponse,
+  decodeRedirectMessage,
+  authnRequestId,
   buildLogoutRequest,
   redirectLogoutRequest,
   postLogoutRequest,
