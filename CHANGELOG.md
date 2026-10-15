@@ -75,11 +75,64 @@
   LogoutResponse, runnable against a published version with `UBCSHIB_REFERENCE`
   (see `test/slo.test.js`), and `passReqToCallback`. Requires `openssl` on `PATH`
   (skips gracefully otherwise).
+- Tests for behaviour the library had but never tested (every earlier test set
+  `validateInResponseTo: false`): the default InResponseTo check (a sign-in
+  started through the strategy and finished with a response naming it; an
+  unknown or missing InResponseTo refused); a replayed response refused; a custom
+  `cacheProvider` reaching `@node-saml`; two strategies sharing one cache, each
+  finishing a sign-in the other started; a failed validation reaching `next(err)`
+  rather than `failureRedirect`, through passport's own middleware; the shape of
+  `profile.attributes`; and the `logout()` helper as it behaves today.
+
+### Documentation
+
+- README: the package name in every example (`passport-ubcshib`, not
+  `@ubcshib/passport-ubcshib`); `cert` is required, not fetched; the library
+  reads only `SAML_ENVIRONMENT` and `SAML_LOGOUT_URL`; the Quick Start's missing
+  `express.urlencoded()`; a failed validation reaches the error handler, not
+  `failureRedirect`; what `profile.attributes` holds; `privateKeyPath` turns on
+  AuthnRequest signing; `enableSLO` has no effect; the `logout()` helper's
+  behaviour (it ignores `returnUrl`); single logout, the third (logout verify)
+  argument and `passReqToCallback`; links to documents that do not exist
+  removed; and a new section, **Running more than one instance**, on the shared
+  `cacheProvider` an app needs when more than one process serves it.
+- ATTRIBUTES.md lists `uid` and `eduPersonPrincipalName`, and its example PUID
+  OID is the one the code maps (`urn:oid:1.3.6.1.4.1.60.6.1.6`).
+- LOCAL_SETUP.md describes docker-simple-saml as it is today (SimpleSAMLphp 2.x
+  on port 6122) and the `entryPoint`/`logoutUrl` an app must pass until the
+  `LOCAL` preset is updated.
 
 ### Compatibility notes for consumers
 
 - `^0.1.6` consumers (`npm install` without a frozen lockfile) pick up this fix
   automatically. With a committed lockfile, run `npm update passport-ubcshib`.
+- **Options 0.1.6 silently dropped now take effect.** 0.1.6 handed
+  `passport-saml` thirteen options — `entryPoint`, `logoutUrl`, `issuer`,
+  `callbackUrl`, the key from `privateKeyPath` (as `privateKey` and
+  `decryptionPvk`), `signatureAlgorithm`, `digestAlgorithm`,
+  `validateInResponseTo`, `acceptedClockSkewMs`, `cert`, `authnRequestBinding`
+  and `identifierFormat` — and discarded every other option without a word.
+  0.1.7 passes every option it does not manage itself straight to `@node-saml`,
+  so an option your app was already passing, and which did nothing, now does
+  what `@node-saml` documents. Check your options for:
+  - `forceAuthn` — the IdP is asked to re-authenticate the person at every
+    sign-in;
+  - `cacheProvider` — now used for InResponseTo (see the README's *Running more
+    than one instance*);
+  - `idpIssuer` — a LogoutRequest or LogoutResponse from any other issuer is
+    now refused. (`@node-saml` 5.1.0 does not check it on a sign-in Response:
+    measured, a Response from another issuer is still accepted.)
+  - `disableRequestedAuthnContext` — the AuthnRequest no longer carries a
+    RequestedAuthnContext;
+  - `requestIdExpirationPeriodMs` — how long a started sign-in can be answered;
+  - `audience` — the assertion's AudienceRestriction is now checked against it;
+  - `wantAssertionsSigned` / `wantAuthnResponseSigned` — that signature is now
+    required;
+  - `passReqToCallback` (below), and anything else `@node-saml` documents
+    (`additionalParams`, `racComparison`, `maxAssertionAgeMs`, ...).
+
+  `privateKey`, `decryptionPvk` and `idpCert` are still set by the wrapper and
+  cannot be passed directly; use `privateKeyPath` and `cert`.
 - `passReqToCallback` was silently ignored by 0.1.6 (it never reached
   `passport-saml`), so a verify written as `(profile, done)` alongside
   `passReqToCallback: true` worked there by accident. From 0.1.7 the option does
