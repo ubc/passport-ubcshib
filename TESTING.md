@@ -1,4 +1,4 @@
-# Testing Guide for @ubcshib/passport-ubcshib
+# Testing Guide for passport-ubcshib
 
 This guide covers how to test the passport-ubcshib strategy during development and deployment.
 

@@ -148,7 +148,7 @@ app.get('/', (req, res) => {
         <head><title>Home</title></head>
         <body>
           <h1>Welcome to the Example App</h1>
-          <p>This is a demonstration of @ubcshib/passport-ubcshib</p>
+          <p>This is a demonstration of passport-ubcshib</p>
           <p><a href="/auth/ubcshib">Login with UBC Shibboleth</a></p>
         </body>
       </html>
