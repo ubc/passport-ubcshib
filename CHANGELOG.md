@@ -88,6 +88,15 @@
   strategy) or import from `passport-saml` in a `.d.ts` should migrate those to
   `@node-saml/passport-saml`; this package no longer pulls `passport-saml` in.
 
+### Licence metadata corrected
+
+- **`package.json` now declares `GPL-3.0-only`.** Every published version
+  through 0.1.7-rc.2 declared `MIT` in its npm metadata, while the `LICENSE`
+  file shipped in every one of those tarballs (and the README since `fb394d9`,
+  2025-11-06) said GPL v3. The licence itself has not changed; 0.1.7 makes the
+  metadata agree with it. A licence scanner that reads `package.json` will
+  report the change.
+
 ## 0.1.6
 
 - Patched logout between passport 0.6+ and passport-saml 3.x; added the

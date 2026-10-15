@@ -370,7 +370,7 @@ For issues, questions, or contributions, please contact the UBC IAM team.
 
 ## License
 
-GPL v3
+GPL v3 only (SPDX: `GPL-3.0-only`). See [LICENSE](./LICENSE).
 
 ## References
 
