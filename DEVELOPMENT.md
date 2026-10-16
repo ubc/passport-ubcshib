@@ -85,7 +85,7 @@ Currently no formal style guide is enforced. Follow these principles:
 
     ```javascript
     const ATTRIBUTE_MAPPINGS = {
-    	'urn:oid:1.3.6.1.4.1.60.6.1.5': 'ubcEduCwlPuid',
+    	'urn:oid:1.3.6.1.4.1.60.6.1.6': 'ubcEduCwlPuid',
     	'urn:oid:NEW_OID_HERE': 'newAttributeName', // Add here
     };
     ```
