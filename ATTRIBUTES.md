@@ -4,7 +4,7 @@ This document describes the SAML attributes available from the UBC Shibboleth Id
 
 ## Overview
 
-SAML attributes are identified by OIDs (Object Identifiers), which are technical names like `urn:oid:1.3.6.1.4.1.60.6.1.5`. This library automatically maps these OIDs to friendly names so you don't have to work with the technical identifiers.
+SAML attributes are identified by OIDs (Object Identifiers), which are technical names like `urn:oid:1.3.6.1.4.1.60.6.1.6`. This library automatically maps these OIDs to friendly names so you don't have to work with the technical identifiers.
 
 ## Requesting Attributes
 
@@ -36,11 +36,13 @@ const profile = {
 
 ### Currently Configured Attributes
 
-These are the attributes currently configured in `lib/attributes.js` and available for use in your applications.
+These are the attributes currently configured in `lib/attributes.js` and available for use in your applications. Each is also recognised under its MACE name (`urn:mace:dir:attribute-def:<friendly name>`) and under its friendly name, which is how a local SimpleSAMLphp IdP such as docker-simple-saml sends it. (`uid` and `eduPersonPrincipalName` gained their OID and MACE names in 0.1.7; before that they resolved only when the IdP sent the friendly name.)
 
 | Friendly Name | OID | Description | Example |
 |---|---|---|---|
-| `ubcEduCwlPuid` | `urn:oid:1.3.6.1.4.1.60.6.1.6` | UBC Computing User ID (permanent unique ID) | `12345678` |
+| `ubcEduCwlPuid` | `urn:oid:1.3.6.1.4.1.60.6.1.6` | UBC CWL Persistent Unique Identifier (permanent unique ID) | `12345678` |
+| `uid` | `urn:oid:0.9.2342.19200300.100.1.1` | User ID | `jsmith` |
+| `eduPersonPrincipalName` | `urn:oid:1.3.6.1.4.1.5923.1.1.1.6` | Principal name (scoped) | `jsmith@ubc.ca` |
 | `mail` | `urn:oid:0.9.2342.19200300.100.1.3` | Email address | `user@ubc.ca` |
 | `sn` | `urn:oid:2.5.4.4` | Surname / last name | `Smith` |
 | `givenName` | `urn:oid:2.5.4.42` | Given name / first name | `John` |
@@ -112,7 +114,7 @@ If your application needs attributes beyond the core three (like `givenName`, `s
 2. Specify which attributes your app needs and why
 3. They will authorize release of those attributes to your app
 4. Once authorized and you have the OID:
-   - Add the mapping to `lib/attributes.js` (see [ADDING_ATTRIBUTES.md](ADDING_ATTRIBUTES.md))
+   - Add the mapping to `ATTRIBUTE_MAPPINGS` in `lib/attributes.js`, and a row to the table above
    - Update your `attributeConfig` in your application
 
 ### Authorization Process
@@ -134,18 +136,18 @@ After UBC IAM authorizes attributes for your app:
 
 ## Attribute Data Types
 
-Most attributes are returned as strings, but some may be arrays:
+An attribute the IdP releases with **one value arrives as a string**, and with **several values as an array** — so the same attribute can be either, depending on the person:
 
 ```javascript
-// String attribute
+// One value: a string
 mail: 'user@ubc.ca'
+eduPersonAffiliation: 'student'
 
-// Array of values
+// Several values: an array
 eduPersonAffiliation: ['student', 'member']
-
-// Single value (array with one element)
-displayName: 'John Smith'
 ```
+
+Check with `Array.isArray` before treating a multi-valued attribute such as `eduPersonAffiliation` as either.
 
 If an attribute is not authorized or not released by the IdP, it will simply be absent from the profile. Always check for attribute existence:
 
@@ -164,12 +166,12 @@ This library supports two ways of referring to attributes:
    - Consistent across environments
    - Use in `attributeConfig`
 
-2. **OID Names** (technical): `urn:oid:1.3.6.1.4.1.60.6.1.5`
+2. **OID Names** (technical): `urn:oid:1.3.6.1.4.1.60.6.1.6`
    - SAML standard format
    - What the IdP uses internally
    - What you see in raw SAML responses
 
-The library automatically converts between these formats.
+The library maps the names in your `attributeConfig` to friendly names in `profile.attributes`. The attributes also stay at the root of the profile under the names the IdP sent. With no `attributeConfig`, nothing is mapped and `profile.attributes` is keyed by the names the IdP sent — OIDs from UBC, friendly names from a local SimpleSAMLphp — so always set it.
 
 ## Privacy and Data Protection
 

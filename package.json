@@ -12,7 +12,7 @@
     "oauth"
   ],
   "author": "UBC",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "engines": {
     "node": ">=22.0.0"
   },
